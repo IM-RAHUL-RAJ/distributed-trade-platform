@@ -12,6 +12,8 @@ public interface OrderMapper {
 
     OrderRow findById(@Param("id") UUID id);
 
+    int insert(OrderRow order);
+
     int updateStatus(@Param("id") UUID id, @Param("status") String status,
                      @Param("executedPrice") BigDecimal executedPrice,
                      @Param("rejectReason") String rejectReason);

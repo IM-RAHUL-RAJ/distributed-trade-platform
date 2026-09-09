@@ -3,11 +3,11 @@ package com.trade.platform.service;
 import com.trade.platform.dto.DashboardResponse;
 import com.trade.platform.dto.MarketDataDto;
 import com.trade.platform.dto.PositionDto;
+import com.trade.platform.dto.S2PositionDto;
 import com.trade.platform.entity.Account;
 import com.trade.platform.entity.Instrument;
-import com.trade.platform.entity.Position;
 import com.trade.platform.mapper.InstrumentMapper;
-import com.trade.platform.mapper.PositionMapper;
+import com.trade.platform.service.Service2Client;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,15 +24,15 @@ import static java.util.stream.Collectors.toMap;
 @RequiredArgsConstructor
 public class PortfolioService {
 
-    private final PositionMapper positionMapper;
     private final InstrumentMapper instrumentMapper;
     private final AccountService accountService;
     private final MarketDataService marketDataService;
+    private final Service2Client service2Client;
 
     public List<PositionDto> positions(UUID userId) {
         Map<String, MarketDataDto> prices = marketDataService.liveMarketData().stream()
                 .collect(toMap(MarketDataDto::symbol, Function.identity(), (a, b) -> a));
-        return positionMapper.findByUser(userId).stream().map(p -> toDto(p, prices)).toList();
+        return service2Client.positions(userId).stream().map(p -> toDto(p, prices)).toList();
     }
 
     /** Holdings = positions with non-zero quantity. */
@@ -53,7 +53,7 @@ public class PortfolioService {
             totalValue = totalValue.add(h.currentValue());
             dayChange = dayChange.add(h.pnl());
         }
-        BigDecimal availableCash = account.getCash();
+        BigDecimal availableCash = accountService.toDto(userId).cash();
         BigDecimal total = totalValue.add(availableCash);
         if (total.signum() > 0) {
             dayChangePercent = dayChange.multiply(BigDecimal.valueOf(100))
@@ -63,17 +63,17 @@ public class PortfolioService {
         return new DashboardResponse.PortfolioSummary(availableCash, invested, total, dayChange, dayChangePercent, totalPnl);
     }
 
-    private PositionDto toDto(Position p, Map<String, MarketDataDto> prices) {
-        Instrument instrument = instrumentMapper.findById(p.getInstrumentId());
-        MarketDataDto md = prices.get(p.getSymbol());
+    private PositionDto toDto(S2PositionDto p, Map<String, MarketDataDto> prices) {
+        Instrument instrument = instrumentMapper.findById(p.instrumentId());
+        MarketDataDto md = prices.get(p.symbol());
         BigDecimal price = md != null ? md.price() : (instrument != null ? instrument.getLastPrice() : BigDecimal.ZERO);
-        BigDecimal currentValue = price.multiply(BigDecimal.valueOf(p.getQuantity()));
-        BigDecimal pnl = p.getQuantity() > 0
-                ? price.subtract(p.getAveragePrice()).multiply(BigDecimal.valueOf(p.getQuantity()))
+        BigDecimal currentValue = price.multiply(BigDecimal.valueOf(p.quantity()));
+        BigDecimal pnl = p.quantity() > 0
+                ? price.subtract(p.averagePrice()).multiply(BigDecimal.valueOf(p.quantity()))
                 : BigDecimal.ZERO;
-        BigDecimal pnlPercent = p.getAveragePrice().signum() == 0 ? BigDecimal.ZERO
-                : pnl.multiply(BigDecimal.valueOf(100)).divide(p.getAveragePrice().multiply(BigDecimal.valueOf(p.getQuantity())), 2, RoundingMode.HALF_UP);
-        return new PositionDto(p.getId(), p.getInstrumentId(), p.getSymbol(), p.getQuantity(),
-                p.getAveragePrice(), p.getRealizedPnl(), price, currentValue, pnl, pnlPercent);
+        BigDecimal pnlPercent = p.averagePrice().signum() == 0 ? BigDecimal.ZERO
+                : pnl.multiply(BigDecimal.valueOf(100)).divide(p.averagePrice().multiply(BigDecimal.valueOf(p.quantity())), 2, RoundingMode.HALF_UP);
+        return new PositionDto(p.id(), p.instrumentId(), p.symbol(), p.quantity(),
+                p.averagePrice(), p.realizedPnl(), price, currentValue, pnl, pnlPercent);
     }
 }

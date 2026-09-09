@@ -8,6 +8,16 @@
         FROM accounts WHERE id = #{id} FOR UPDATE
     </select>
 
+    <select id="findByUserId" resultType="com.trade.platform.s2.entity.Account">
+        SELECT id, user_id, cash, margin, status, created_at, updated_at
+        FROM accounts WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" parameterType="com.trade.platform.s2.entity.Account">
+        INSERT INTO accounts (id, user_id, cash, margin, status)
+        VALUES (#{id}, #{userId}, COALESCE(#{cash}, 1000000.0000), COALESCE(#{margin}, 0), 'ACTIVE')
+    </insert>
+
     <update id="updateCash">
         UPDATE accounts SET cash = #{cash}, updated_at = NOW() WHERE id = #{id}
     </update>

@@ -17,9 +17,11 @@
     <insert id="insertWithCompletion" parameterType="com.trade.platform.entity.CustomerPreference">
         INSERT INTO customer_preferences (user_id, trading_experience, risk_tolerance, trading_style,
                                           investment_horizon, preferred_sectors, trading_frequency, is_completed, created_at, updated_at)
-        VALUES (#{userId}, #{tradingExperience}, #{riskTolerance}, #{tradingStyle},
-                #{investmentHorizon}, #{preferredSectors}, #{tradingFrequency}, TRUE, NOW(), NOW())
-        ON CONFLICT (user_id) DO NOTHING
+        SELECT #{userId}, #{tradingExperience}, #{riskTolerance}, #{tradingStyle},
+               #{investmentHorizon}, #{preferredSectors}, #{tradingFrequency}, TRUE, NOW(), NOW()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM customer_preferences p WHERE p.user_id = #{userId}
+        )
     </insert>
 
     <update id="update" parameterType="com.trade.platform.entity.CustomerPreference">

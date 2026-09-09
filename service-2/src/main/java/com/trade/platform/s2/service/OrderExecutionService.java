@@ -74,8 +74,19 @@ public class OrderExecutionService {
 
         OrderRow order = orderMapper.findById(event.orderId());
         if (order == null) {
-            log.warn("Order {} not found; skipping", event.orderId());
-            return ExecutionResult.skip("ORDER_NOT_FOUND");
+            // Service 2 owns its own execution DB: materialize the order row
+            // from the event (the authoritative copy stays in Service 1's outbox).
+            // The accounts FK must exist first, so lazy-seed the account row too.
+            if (accountMapper.lockById(event.accountId()) == null) {
+                log.info("Seeding execution account {} for user {}", event.accountId(), event.userId());
+                Account seeded = new Account();
+                seeded.setId(event.accountId());
+                seeded.setUserId(event.userId());
+                accountMapper.insert(seeded);
+            }
+            log.info("Materializing order {} into service-2 execution DB", event.orderId());
+            orderMapper.insert(fromEvent(event));
+            order = orderMapper.findById(event.orderId());
         }
         if (!"PENDING".equals(order.getStatus())) {
             log.info("Order {} already in status {}; skipping", order.getId(), order.getStatus());
@@ -84,7 +95,14 @@ public class OrderExecutionService {
 
         Account account = accountMapper.lockById(order.getAccountId());
         if (account == null) {
-            return reject(order, "Account not found");
+            // First order for this user: seed the execution account row lazily
+            // (same ids as Service 1's read-model account; cash default 1M).
+            log.info("Seeding execution account {} for user {}", order.getAccountId(), order.getUserId());
+            Account seeded = new Account();
+            seeded.setId(order.getAccountId());
+            seeded.setUserId(order.getUserId());
+            accountMapper.insert(seeded);
+            account = accountMapper.lockById(order.getAccountId());
         }
 
         BigDecimal price = resolveExecutionPrice(order);
@@ -217,6 +235,22 @@ public class OrderExecutionService {
         }
         var instrument = marketDataMapper.findInstrument(order.getInstrumentId());
         return instrument != null ? instrument.getLastPrice() : null;
+    }
+
+    /** Builds the execution copy of an order straight from the Kafka event. */
+    private OrderRow fromEvent(OrderPlacedEvent event) {
+        OrderRow order = new OrderRow();
+        order.setId(event.orderId());
+        order.setUserId(event.userId());
+        order.setAccountId(event.accountId());
+        order.setInstrumentId(event.instrumentId());
+        order.setSymbol(event.symbol());
+        order.setSide(event.side());
+        order.setOrderType(event.orderType());
+        order.setQuantity(event.quantity());
+        order.setRequestedPrice(event.requestedPrice());
+        order.setStatus("PENDING");
+        return order;
     }
 
     public record ExecutionResult(String outcome, UUID orderId, BigDecimal executedPrice, String rejectReason) {

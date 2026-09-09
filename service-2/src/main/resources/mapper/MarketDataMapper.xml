@@ -24,13 +24,9 @@
     </select>
 
     <insert id="upsert" parameterType="com.trade.platform.s2.entity.MarketData">
-        INSERT INTO market_data (instrument_id, symbol, price, change, change_percent, timestamp)
+        MERGE INTO market_data (instrument_id, symbol, price, change, change_percent, timestamp)
+        KEY (instrument_id)
         VALUES (#{instrumentId}, #{symbol}, #{price}, #{change}, #{changePercent}, #{timestamp})
-        ON CONFLICT (instrument_id) DO UPDATE
-        SET price = EXCLUDED.price,
-            change = EXCLUDED.change,
-            change_percent = EXCLUDED.change_percent,
-            timestamp = EXCLUDED.timestamp
     </insert>
 
 </mapper>

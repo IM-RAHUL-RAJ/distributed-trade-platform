@@ -8,6 +8,11 @@
         FROM trades WHERE order_id = #{orderId}
     </select>
 
+    <select id="findByUser" resultType="com.trade.platform.s2.entity.Trade">
+        SELECT id, order_id, user_id, account_id, instrument_id, symbol, side, quantity, price, executed_at
+        FROM trades WHERE user_id = #{userId}
+    </select>
+
     <insert id="insert" parameterType="com.trade.platform.s2.entity.Trade">
         INSERT INTO trades (id, order_id, user_id, account_id, instrument_id, symbol, side, quantity, price, executed_at)
         VALUES (#{id}, #{orderId}, #{userId}, #{accountId}, #{instrumentId}, #{symbol}, #{side}, #{quantity}, #{price}, NOW())

@@ -5,8 +5,10 @@
 
     <insert id="insertIgnore">
         INSERT INTO processed_events (event_id, event_type, order_id, payload, processed_at)
-        VALUES (#{eventId}, #{eventType}, #{orderId}, #{payload}, NOW())
-        ON CONFLICT (event_id) DO NOTHING
+        SELECT #{eventId}, #{eventType}, #{orderId}, #{payload}, NOW()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM processed_events e WHERE e.event_id = #{eventId}
+        )
     </insert>
 
 </mapper>

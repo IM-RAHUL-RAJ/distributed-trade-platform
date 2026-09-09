@@ -19,13 +19,16 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountMapper accountMapper;
+    private final Service2Client service2Client;
     private final BigDecimal defaultCash;
     private final List<String> watchlistSymbols;
 
     public AccountService(AccountMapper accountMapper,
+                          Service2Client service2Client,
                           @Value("${app.onboarding.default-cash:1000000}") BigDecimal defaultCash,
                           @Value("${app.onboarding.watchlist-symbols:NVDA,AAPL,MSFT,TSLA,META,GOOG,AMZN}") String watchlistSymbols) {
         this.accountMapper = accountMapper;
+        this.service2Client = service2Client;
         this.defaultCash = defaultCash;
         this.watchlistSymbols = Arrays.stream(watchlistSymbols.split(",")).map(String::trim).toList();
     }
@@ -48,8 +51,16 @@ public class AccountService {
         return account;
     }
 
+    /**
+     * Cash/margin always come from Service 2 (the execution ledger). The local
+     * accounts table is only kept for FK integrity on orders in the read model.
+     */
     public AccountDto toDto(UUID userId) {
         Account account = getOrCreate(userId);
+        AccountDto remote = service2Client.account(userId);
+        if (remote != null) {
+            return remote;
+        }
         return new AccountDto(account.getStatus(), "Trading Account", account.getCash(), account.getMargin());
     }
 }

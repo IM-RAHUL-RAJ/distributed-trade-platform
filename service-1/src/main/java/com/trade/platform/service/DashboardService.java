@@ -3,8 +3,6 @@ package com.trade.platform.service;
 import com.trade.platform.dto.DashboardResponse;
 import com.trade.platform.dto.TranslationDtos;
 import com.trade.platform.mapper.OrderMapper;
-import com.trade.platform.mapper.TransactionMapper;
-import com.trade.platform.mapper.TradeMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +16,7 @@ public class DashboardService {
     private final PortfolioService portfolioService;
     private final MarketDataService marketDataService;
     private final OrderMapper orderMapper;
-    private final TransactionMapper transactionMapper;
-    private final TradeMapper tradeMapper;
+    private final Service2Client service2Client;
 
     public DashboardResponse build(UUID userId) {
         accountService.getOrCreate(userId);
@@ -31,10 +28,10 @@ public class DashboardService {
         var watchlist = marketDataService.watchlist(userId);
         var marketData = marketDataService.liveMarketData();
         var openOrders = orderMapper.findOpenByUser(userId).stream().map(TranslationDtos::toOrderResponse).toList();
-        var recentTransactions = transactionMapper.findByUser(userId).stream()
-                .limit(8).map(TranslationDtos::toTransactionDto).toList();
-        var recentTrades = tradeMapper.findByUser(userId).stream()
-                .limit(8).map(TranslationDtos::toTradeDto).toList();
+        var recentTransactions = service2Client.transactions(userId).stream()
+                .limit(8).toList();
+        var recentTrades = service2Client.trades(userId).stream()
+                .limit(8).toList();
 
         return new DashboardResponse(account, portfolio, holdings, positions,
                 watchlist, marketData, openOrders, recentTransactions, recentTrades);

@@ -1,21 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${DB_NAME:-trade_platform}
-      POSTGRES_USER: ${DB_USER:-trade_app}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-trade_app_password}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-trade_app} -d ${DB_NAME:-trade_platform}"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-    restart: unless-stopped
-
   kafka:
     image: apache/kafka:3.8.0
     user: "0"
@@ -86,18 +69,16 @@ services:
     image: trade-platform-service-1:latest
     build: ./service-1
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME:-trade_platform}
-      DB_USER: ${DB_USER:-trade_app}
-      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      H2_TCP_ENABLED: "true"
+      H2_TCP_PORT: ${H2_TCP_PORT:-9095}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      SERVICE2_URL: http://service-2:8080
     ports:
       - "${SERVICE1_PORT:-8081}:8080"
+    volumes:
+      - h2data:/data
     depends_on:
-      postgres:
-        condition: service_healthy
       kafka:
         condition: service_healthy
       kafka-init:
@@ -114,26 +95,20 @@ services:
     image: trade-platform-service-2:latest
     build: ./service-2
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME:-trade_platform}
-      DB_USER: ${DB_USER:-trade_app}
-      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      H2_TCP_ENABLED: "true"
+      H2_TCP_PORT: ${S2_H2_TCP_PORT:-9096}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       FUNKSANCE_API_URL: http://mock-funksance:8080
       MARKET_DATA_POLL_INTERVAL_MS: ${MARKET_DATA_POLL_INTERVAL_MS:-5000}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
     ports:
       - "${SERVICE2_PORT:-8082}:8080"
+    volumes:
+      - s2data:/data
     depends_on:
-      postgres:
-        condition: service_healthy
       kafka:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      service-1:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health/readiness | grep -q UP || exit 1"]
       interval: 10s
@@ -148,11 +123,6 @@ services:
     environment:
       PORT: "3000"
       NODE_ENV: production
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME:-trade_platform}
-      DB_USER: ${DB_USER:-trade_app}
-      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
       SERVICE1_URL: http://service-1:8080
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
       ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
@@ -160,8 +130,6 @@ services:
     ports:
       - "${BFF_PORT:-3000}:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
       service-1:
         condition: service_healthy
     healthcheck:
@@ -186,23 +154,22 @@ services:
     build: ./analytics
     image: trade-platform-analytics:latest
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME:-trade_platform}
-      DB_USER: ${DB_USER:-trade_app}
-      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      DB_HOST: service-1
+      DB_PORT: ${H2_TCP_PORT:-9095}
+      DB_NAME: trade_platform
+      DB_USER: sa
+      DB_PASSWORD: ""
       ANALYTICS_OUTPUT_DIR: /app/output
     volumes:
       - analytics-output:/app/output
     depends_on:
-      postgres:
-        condition: service_healthy
       service-1:
         condition: service_healthy
       service-2:
         condition: service_healthy
 
 volumes:
-  pgdata:
+  h2data:
+  s2data:
   kafka-data:
   analytics-output:

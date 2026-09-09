@@ -1,19 +1,19 @@
 package com.trade.platform.service;
 
 import com.trade.platform.common.BusinessException;
-import com.trade.platform.config.TopicProperties;
 import com.trade.platform.dto.OrderRequest;
 import com.trade.platform.dto.OrderResponse;
 import com.trade.platform.entity.Account;
 import com.trade.platform.entity.Instrument;
+import com.trade.platform.entity.OrderPlacedOutbox;
 import com.trade.platform.entity.OrderRow;
 import com.trade.platform.event.OrderPlacedEvent;
 import com.trade.platform.mapper.OrderMapper;
+import com.trade.platform.mapper.OutboxMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,11 +28,10 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderMapper orderMapper;
+    private final OutboxMapper outboxMapper;
     private final InstrumentService instrumentService;
     private final AccountService accountService;
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final TopicProperties topicProperties;
 
     @Transactional
     public OrderResponse create(UUID userId, OrderRequest request) {
@@ -74,7 +73,7 @@ public class OrderService {
         order.setStatus("PENDING");
         orderMapper.insert(order);
 
-        publishOrderPlaced(order);
+        enqueueOrderPlaced(order);
         log.info("Order {} created for user {} side={} qty={} symbol={}",
                 order.getId(), userId, order.getSide(), order.getQuantity(), order.getSymbol());
         return toResponse(order);
@@ -106,7 +105,12 @@ public class OrderService {
         return toResponse(orderMapper.findById(orderId));
     }
 
-    private void publishOrderPlaced(OrderRow order) {
+    /**
+     * Transactional outbox: the order-placed event is written in the SAME DB
+     * transaction as the order row. A scheduled publisher forwards it to Kafka,
+     * so we never lose an event between order insert and publish.
+     */
+    private void enqueueOrderPlaced(OrderRow order) {
         OrderPlacedEvent event = new OrderPlacedEvent(
                 UUID.randomUUID(),
                 order.getId(),
@@ -120,8 +124,13 @@ public class OrderService {
                 order.getQuantity(),
                 Instant.now());
         try {
-            kafkaTemplate.send(topicProperties.orderPlaced(), order.getId().toString(),
-                    objectMapper.writeValueAsString(event));
+            OrderPlacedOutbox outbox = new OrderPlacedOutbox();
+            outbox.setId(UUID.randomUUID());
+            outbox.setOrderId(order.getId());
+            outbox.setEventId(event.eventId());
+            outbox.setPayload(objectMapper.writeValueAsString(event));
+            outbox.setStatus("PENDING");
+            outboxMapper.insert(outbox);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize order-placed event for order {}", order.getId(), e);
             throw new BusinessException("Failed to publish order event");

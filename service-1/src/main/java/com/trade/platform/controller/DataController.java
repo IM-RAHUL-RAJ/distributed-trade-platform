@@ -3,11 +3,9 @@ package com.trade.platform.controller;
 import com.trade.platform.dto.MarketDataDto;
 import com.trade.platform.dto.TransactionDto;
 import com.trade.platform.dto.TradeDto;
-import com.trade.platform.mapper.TransactionMapper;
-import com.trade.platform.mapper.TradeMapper;
-import com.trade.platform.dto.TranslationDtos;
 import com.trade.platform.security.CurrentUser;
 import com.trade.platform.service.MarketDataService;
+import com.trade.platform.service.Service2Client;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,17 +20,16 @@ import java.util.UUID;
 public class DataController {
 
     private final MarketDataService marketDataService;
-    private final TradeMapper tradeMapper;
-    private final TransactionMapper transactionMapper;
+    private final Service2Client service2Client;
 
     @GetMapping("/trades")
     public List<TradeDto> trades(@CurrentUser UUID userId) {
-        return tradeMapper.findByUser(userId).stream().map(TranslationDtos::toTradeDto).toList();
+        return service2Client.trades(userId);
     }
 
     @GetMapping("/transactions")
     public List<TransactionDto> transactions(@CurrentUser UUID userId) {
-        return transactionMapper.findByUser(userId).stream().map(TranslationDtos::toTransactionDto).toList();
+        return service2Client.transactions(userId);
     }
 
     @GetMapping("/market-data")

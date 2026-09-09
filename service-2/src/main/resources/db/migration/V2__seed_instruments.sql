@@ -1,10 +1,11 @@
 -- =====================================================================
--- Trade Platform - Seed Data
--- Instruments reference data (applied by Flyway migration V2).
+-- Trade Platform - Service 2 Seed Data
+-- Instruments reference data duplicated into Service 2's own DB so that
+-- execution pricing (fallback to last_price) is self-contained.
 --
--- IMPORTANT: instrument ids are FIXED and identical to Service 2's seed so
--- instrument UUIDs stay globally consistent across the two independent
--- databases (events carry instrument_id).
+-- IMPORTANT: instrument ids are FIXED (not RANDOM_UUID) and identical to
+-- Service 1's seed so instrument UUIDs stay globally consistent across the
+-- two independent databases (events carry instrument_id).
 -- =====================================================================
 
 INSERT INTO instruments (id, symbol, name, exchange, currency, type, tick_size, lot_size, last_price, change, change_percent) VALUES

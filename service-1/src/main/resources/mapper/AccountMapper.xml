@@ -34,7 +34,9 @@
         <foreach collection="symbols" item="s" open="(" separator="," close=")">
             #{s}
         </foreach>
-        ON CONFLICT (user_id, instrument_id) DO NOTHING
+        AND NOT EXISTS (
+            SELECT 1 FROM watchlists w WHERE w.user_id = #{userId} AND w.instrument_id = instruments.id
+        )
     </insert>
 
 </mapper>

@@ -8,6 +8,11 @@
         FROM positions WHERE user_id = #{userId} AND instrument_id = #{instrumentId} FOR UPDATE
     </select>
 
+    <select id="findByUser" resultType="com.trade.platform.s2.entity.Position">
+        SELECT id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at
+        FROM positions WHERE user_id = #{userId}
+    </select>
+
     <insert id="insert" parameterType="com.trade.platform.s2.entity.Position">
         INSERT INTO positions (id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at)
         VALUES (#{id}, #{userId}, #{accountId}, #{instrumentId}, #{symbol}, #{quantity}, #{averagePrice}, #{realizedPnl}, NOW())

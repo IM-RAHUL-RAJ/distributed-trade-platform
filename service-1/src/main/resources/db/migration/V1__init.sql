@@ -1,36 +1,36 @@
 -- =====================================================================
 -- Trade Platform - Initial Schema (V1)
 -- Managed by Flyway (runs on Service 1 startup)
--- PostgreSQL 16
+-- Embedded H2 (PostgreSQL compatibility mode)
 -- =====================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- ---------------------------------------------------------------------
--- users (auth + identity, owned for auth by NestJS, used by Service 1)
+-- users (auth + identity). Auth storage lives in the BFF's own embedded
+-- store; this table keeps the shared user-id namespace for FK integrity.
+-- Service 1/2 only ever key on user_id and never read this table.
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id              UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
     email           VARCHAR(255) NOT NULL UNIQUE,
     password_hash   VARCHAR(255) NOT NULL,
     first_name      VARCHAR(100) NOT NULL,
     last_name       VARCHAR(100) NOT NULL,
     role            VARCHAR(20)  NOT NULL DEFAULT 'USER',
     status          VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- ---------------------------------------------------------------------
--- refresh_tokens (owned by NestJS auth)
+-- refresh_tokens (owned by NestJS auth, kept for schema parity)
 -- ---------------------------------------------------------------------
 CREATE TABLE refresh_tokens (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id          UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    user_id     UUID NOT NULL,
     token_hash  VARCHAR(512) NOT NULL UNIQUE,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    revoked_at  TIMESTAMPTZ
+    expires_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    revoked_at  TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
@@ -39,13 +39,13 @@ CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 -- accounts (owned by Service 1)
 -- ---------------------------------------------------------------------
 CREATE TABLE accounts (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id          UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    user_id     UUID NOT NULL,
     cash        NUMERIC(19,4) NOT NULL DEFAULT 1000000.0000,
     margin      NUMERIC(19,4) NOT NULL DEFAULT 0,
     status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_accounts_user UNIQUE (user_id),
     CONSTRAINT chk_accounts_cash_non_negative CHECK (cash >= 0)
 );
@@ -56,8 +56,8 @@ CREATE INDEX idx_accounts_user ON accounts(user_id);
 -- customer_preferences (owned by Service 1)
 -- ---------------------------------------------------------------------
 CREATE TABLE customer_preferences (
-    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id                   UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    user_id              UUID NOT NULL,
     trading_experience   VARCHAR(40),
     risk_tolerance       VARCHAR(40),
     trading_style        VARCHAR(40),
@@ -65,8 +65,8 @@ CREATE TABLE customer_preferences (
     preferred_sectors    VARCHAR(500),
     trading_frequency    VARCHAR(40),
     is_completed         BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_preferences_user UNIQUE (user_id)
 );
 
@@ -74,7 +74,7 @@ CREATE TABLE customer_preferences (
 -- instruments (seed data)
 -- ---------------------------------------------------------------------
 CREATE TABLE instruments (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id              UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
     symbol          VARCHAR(20) NOT NULL UNIQUE,
     name            VARCHAR(120) NOT NULL,
     exchange        VARCHAR(20) NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE instruments (
     last_price      NUMERIC(19,4),
     change          NUMERIC(19,4) DEFAULT 0,
     change_percent  NUMERIC(10,4) DEFAULT 0,
-    updated_at      TIMESTAMPTZ,
+    updated_at      TIMESTAMP WITH TIME ZONE,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -95,8 +95,8 @@ CREATE INDEX idx_instruments_symbol ON instruments(symbol);
 -- orders (owned by Service 1 + executed by Service 2)
 -- ---------------------------------------------------------------------
 CREATE TABLE orders (
-    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id          UUID NOT NULL REFERENCES users(id),
+    id               UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    user_id          UUID NOT NULL,
     account_id       UUID NOT NULL REFERENCES accounts(id),
     instrument_id    UUID NOT NULL REFERENCES instruments(id),
     symbol           VARCHAR(20) NOT NULL,
@@ -107,8 +107,8 @@ CREATE TABLE orders (
     executed_price   NUMERIC(19,4),
     status           VARCHAR(10) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','EXECUTED','REJECTED','CANCELLED')),
     reject_reason    VARCHAR(500),
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_orders_user       ON orders(user_id);
@@ -118,71 +118,19 @@ CREATE INDEX idx_orders_status     ON orders(status);
 CREATE INDEX idx_orders_created    ON orders(created_at DESC);
 
 -- ---------------------------------------------------------------------
--- trades (owned by Service 2)
+-- trades / positions / transactions are OWNED BY SERVICE 2.
+-- Service 1 no longer creates these tables; it reads execution state
+-- over Service 2's internal read API (/api/internal) for the dashboard.
 -- ---------------------------------------------------------------------
-CREATE TABLE trades (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id       UUID NOT NULL REFERENCES orders(id),
-    user_id        UUID NOT NULL REFERENCES users(id),
-    account_id     UUID NOT NULL REFERENCES accounts(id),
-    instrument_id  UUID NOT NULL REFERENCES instruments(id),
-    symbol         VARCHAR(20) NOT NULL,
-    side           VARCHAR(4) NOT NULL CHECK (side IN ('BUY','SELL')),
-    quantity       INTEGER NOT NULL CHECK (quantity > 0),
-    price          NUMERIC(19,4) NOT NULL,
-    executed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_trades_order UNIQUE (order_id)
-);
-
-CREATE INDEX idx_trades_user     ON trades(user_id);
-CREATE INDEX idx_trades_executed ON trades(executed_at DESC);
-
--- ---------------------------------------------------------------------
--- positions (owned by Service 2)
--- ---------------------------------------------------------------------
-CREATE TABLE positions (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id        UUID NOT NULL REFERENCES users(id),
-    account_id     UUID NOT NULL REFERENCES accounts(id),
-    instrument_id  UUID NOT NULL REFERENCES instruments(id),
-    symbol         VARCHAR(20) NOT NULL,
-    quantity       INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
-    average_price  NUMERIC(19,4) NOT NULL DEFAULT 0,
-    realized_pnl   NUMERIC(19,4) NOT NULL DEFAULT 0,
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_positions_user_instrument UNIQUE (user_id, instrument_id)
-);
-
-CREATE INDEX idx_positions_account ON positions(account_id);
-
--- ---------------------------------------------------------------------
--- transactions (owned by Service 2, cash-flow audit)
--- ---------------------------------------------------------------------
-CREATE TABLE transactions (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id        UUID NOT NULL REFERENCES users(id),
-    account_id     UUID NOT NULL REFERENCES accounts(id),
-    order_id       UUID REFERENCES orders(id),
-    trade_id       UUID REFERENCES trades(id),
-    type           VARCHAR(30) NOT NULL,
-    amount         NUMERIC(19,4) NOT NULL,
-    balance_after  NUMERIC(19,4) NOT NULL,
-    description    VARCHAR(500),
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_transactions_user    ON transactions(user_id);
-CREATE INDEX idx_transactions_account ON transactions(account_id);
-CREATE INDEX idx_transactions_created ON transactions(created_at DESC);
 
 -- ---------------------------------------------------------------------
 -- watchlists
 -- ---------------------------------------------------------------------
 CREATE TABLE watchlists (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id             UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    user_id        UUID NOT NULL,
     instrument_id  UUID NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_watchlists_user_instrument UNIQUE (user_id, instrument_id)
 );
 
@@ -195,7 +143,7 @@ CREATE TABLE market_data (
     price           NUMERIC(19,4) NOT NULL,
     change          NUMERIC(19,4) NOT NULL DEFAULT 0,
     change_percent  NUMERIC(10,4) NOT NULL DEFAULT 0,
-    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    timestamp       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_market_data_symbol ON market_data(symbol);
@@ -208,18 +156,35 @@ CREATE TABLE processed_events (
     event_type    VARCHAR(40)  NOT NULL,
     order_id      UUID,
     payload       TEXT,
-    processed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    processed_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- ---------------------------------------------------------------------
 -- latest_events (read-state / audit owned by Service 1)
 -- ---------------------------------------------------------------------
 CREATE TABLE latest_events (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id            UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
     event_type    VARCHAR(40) NOT NULL,
     order_id      UUID,
-    payload       JSONB,
-    received_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    payload       CLOB,
+    received_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_latest_events_type ON latest_events(event_type, received_at DESC);
+
+-- ---------------------------------------------------------------------
+-- order_placed_outbox (transactional outbox owned by Service 1)
+-- Rows are written in the SAME DB transaction as the order row, then a
+-- scheduled publisher forwards them to Kafka topic 'order-placed'.
+-- ---------------------------------------------------------------------
+CREATE TABLE order_placed_outbox (
+    id             UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    order_id       UUID NOT NULL,
+    event_id       UUID NOT NULL,
+    payload        CLOB NOT NULL,
+    status         VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PUBLISHED')),
+    published_at   TIMESTAMP WITH TIME ZONE,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_outbox_status ON order_placed_outbox(status, created_at);

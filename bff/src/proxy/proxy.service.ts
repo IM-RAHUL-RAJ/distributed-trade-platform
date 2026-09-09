@@ -4,11 +4,6 @@ import {
   Logger,
 } from '@nestjs/common';
 
-export interface ForwardResult {
-  status: number;
-  body: unknown;
-}
-
 /**
  * Thin forwarding layer: authenticated business requests are replayed to
  * Service 1 with the SAME access token. NestJS makes zero business decisions.
@@ -26,7 +21,7 @@ export class ProxyService {
     path: string,
     token: string,
     body?: unknown,
-  ): Promise<ForwardResult> {
+  ): Promise<unknown> {
     const url = `${this.getService1Url()}/api/v1/${path}`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${token}`,
@@ -56,6 +51,6 @@ export class ProxyService {
           : `Service 1 returned ${response.status}`;
       throw new HttpException(message, response.status);
     }
-    return { status: response.status, body: json };
+    return json;
   }
 }

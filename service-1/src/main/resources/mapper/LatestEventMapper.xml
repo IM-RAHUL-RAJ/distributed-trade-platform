@@ -5,7 +5,7 @@
 
     <insert id="insert">
         INSERT INTO latest_events (id, event_type, order_id, payload, received_at)
-        VALUES (#{id}, #{eventType}, #{orderId}, CAST(#{payload} AS JSONB), NOW())
+        VALUES (#{id}, #{eventType}, #{orderId}, #{payload}, NOW())
     </insert>
 
 </mapper>

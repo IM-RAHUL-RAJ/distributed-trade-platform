@@ -9,7 +9,7 @@ RUN mvn -q -DskipTests package
 # ---- Runtime stage ----
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 appuser
+RUN useradd --system --uid 10001 appuser && mkdir -p /data && chown appuser:appuser /data
 COPY --from=build /build/target/service-1-1.0.0.jar app.jar
 USER appuser
 EXPOSE 8080

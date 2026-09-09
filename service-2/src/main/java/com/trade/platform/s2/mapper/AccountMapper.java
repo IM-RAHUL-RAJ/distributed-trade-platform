@@ -12,5 +12,9 @@ public interface AccountMapper {
 
     Account lockById(@Param("id") UUID id);
 
+    Account findByUserId(@Param("userId") UUID userId);
+
+    int insert(Account account);
+
     int updateCash(@Param("id") UUID id, @Param("cash") BigDecimal cash);
 }
