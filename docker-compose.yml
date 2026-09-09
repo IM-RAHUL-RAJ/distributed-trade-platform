@@ -1,0 +1,208 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-trade_platform}
+      POSTGRES_USER: ${DB_USER:-trade_app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-trade_app} -d ${DB_NAME:-trade_platform}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:3.8.0
+    user: "0"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_NUM_RECOVERY_THREADS_PER_DATA_DIR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-5L6g3nShT-eMCtK--X86sw}
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+    restart: unless-stopped
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic order-placed  --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic trade-events  --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic market-data   --partitions 1 --replication-factor 1
+        echo "Kafka topics ready."
+
+  mock-funksance:
+    image: trade-platform-mock-funksance:latest
+    build: ./infrastructure/mock-funksance
+    environment:
+      MOCK_PORT: 8080
+    ports:
+      - "${MOCK_API_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  service-1:
+    image: trade-platform-service-1:latest
+    build: ./service-1
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-trade_platform}
+      DB_USER: ${DB_USER:-trade_app}
+      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+    ports:
+      - "${SERVICE1_PORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health/readiness | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    restart: unless-stopped
+
+  service-2:
+    image: trade-platform-service-2:latest
+    build: ./service-2
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-trade_platform}
+      DB_USER: ${DB_USER:-trade_app}
+      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FUNKSANCE_API_URL: http://mock-funksance:8080
+      MARKET_DATA_POLL_INTERVAL_MS: ${MARKET_DATA_POLL_INTERVAL_MS:-5000}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+    ports:
+      - "${SERVICE2_PORT:-8082}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      service-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health/readiness | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    restart: unless-stopped
+
+  bff:
+    image: trade-platform-bff:latest
+    build: ./bff
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-trade_platform}
+      DB_USER: ${DB_USER:-trade_app}
+      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      SERVICE1_URL: http://service-1:8080
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
+      REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-604800}
+    ports:
+      - "${BFF_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      service-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/v1/auth/me || true"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    image: trade-platform-frontend:latest
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      - bff
+    restart: unless-stopped
+
+  analytics:
+    profiles: ["analytics"]
+    build: ./analytics
+    image: trade-platform-analytics:latest
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-trade_platform}
+      DB_USER: ${DB_USER:-trade_app}
+      DB_PASSWORD: ${DB_PASSWORD:-trade_app_password}
+      ANALYTICS_OUTPUT_DIR: /app/output
+    volumes:
+      - analytics-output:/app/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+      service-1:
+        condition: service_healthy
+      service-2:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  kafka-data:
+  analytics-output:
