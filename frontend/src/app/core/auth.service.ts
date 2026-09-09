@@ -106,6 +106,7 @@ export class ApiService {
   orders = {
     list: () => this.get<Order[]>('orders'),
     create: (body: OrderRequest) => this.post<Order>('orders', body),
+    get: (id: string) => this.get<Order>(`orders/${id}`),
     cancel: (id: string) => this.post<Order>(`orders/${id}/cancel`, {}),
   };
 

@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { interval, Subscription } from 'rxjs';
 import { ApiService } from '../../core/auth.service';
 import { Order, money } from '../../core/models';
 
@@ -39,13 +40,19 @@ import { Order, money } from '../../core/models';
     </div>
   `,
 })
-export class OrdersComponent implements OnInit {
+export class OrdersComponent implements OnInit, OnDestroy {
   orders: Order[] | null = null;
+  private poll: Subscription | null = null;
 
   constructor(private api: ApiService) {}
 
   ngOnInit() {
     this.load();
+    this.poll = interval(3000).subscribe(() => this.load());
+  }
+
+  ngOnDestroy() {
+    this.poll?.unsubscribe();
   }
 
   private load() {

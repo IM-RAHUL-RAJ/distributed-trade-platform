@@ -1,8 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/auth.service';
-import { Instrument, money } from '../../core/models';
+import { Instrument, Order, money } from '../../core/models';
 
 type Side = 'BUY' | 'SELL';
 type OrderType = 'MARKET' | 'LIMIT';
@@ -64,6 +64,11 @@ type OrderType = 'MARKET' | 'LIMIT';
 
           <p *ngIf="message.text" [class.success]="message.ok" [class.error]="!message.ok" class="msg">{{ message.text }}</p>
 
+          <p *ngIf="buffering" class="msg buffering">
+            Executing
+            <span class="dots"><i></i><i></i><i></i></span>
+          </p>
+
           <button class="btn full-order" [class.buy-btn]="side === 'BUY'" [class.sell-btn]="side === 'SELL'"
                   (click)="placeOrder()" [disabled]="placing">
             {{ placing ? 'Placing order…' : (side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (quantity || '') }}
@@ -102,9 +107,18 @@ type OrderType = 'MARKET' | 'LIMIT';
     .msg { margin: 10px 0 0; font-size: 13px; }
     .full-order { width: 100%; padding: 12px; font-size: 15px; }
     .clickable { cursor: pointer; }
+    .buffering { display: flex; align-items: center; gap: 6px; color: var(--accent, #4a80f0); }
+    .dots { display: inline-flex; gap: 3px; }
+    .dots i {
+      width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+      animation: tp-blink 1.2s infinite both;
+    }
+    .dots i:nth-child(2) { animation-delay: 0.2s; }
+    .dots i:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes tp-blink { 0%, 80%, 100% { opacity: 0.15; } 40% { opacity: 1; } }
   `],
 })
-export class TradeComponent implements OnInit {
+export class TradeComponent implements OnInit, OnDestroy {
   instruments: Instrument[] = [];
   selected: Instrument | null = null;
   symbol = '';
@@ -113,7 +127,10 @@ export class TradeComponent implements OnInit {
   quantity = 1;
   limitPrice: number | null = null;
   placing = false;
+  buffering = false;
   message: { text: string; ok: boolean } = { text: '', ok: true };
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollCount = 0;
 
   constructor(private api: ApiService) {}
 
@@ -150,6 +167,17 @@ export class TradeComponent implements OnInit {
     this.onInstrumentChange();
   }
 
+  ngOnDestroy() {
+    this.stopPolling();
+  }
+
+  private stopPolling() {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+  }
+
   placeOrder() {
     if (!this.quantity || this.quantity < 1) {
       this.message = { text: 'Quantity must be at least 1.', ok: false };
@@ -168,17 +196,53 @@ export class TradeComponent implements OnInit {
       .subscribe({
         next: (order) => {
           this.placing = false;
+          this.buffering = true;
           this.message = {
-            text: `Order ${order.id.slice(0, 8)}… placed (${order.status}). The executor will process it via Kafka.`,
+            text: `Order ${order.id.slice(0, 8)}… placed (${order.status}) — awaiting the executor…`,
             ok: true,
           };
           this.quantity = 1;
+          this.startTracking(order);
         },
         error: (err) => {
           this.placing = false;
+          this.buffering = false;
           this.message = { text: err.error?.message || 'Order failed.', ok: false };
         },
       });
+  }
+
+  private startTracking(order: Order) {
+    this.stopPolling();
+    this.pollCount = 0;
+    this.pollTimer = setInterval(() => {
+      if (++this.pollCount > 45) {
+        this.stopPolling();
+        this.buffering = false;
+        this.message = {
+          text: `Order ${order.id.slice(0, 8)}… still ${order.status} — check the Orders page.`,
+          ok: true,
+        };
+        return;
+      }
+      this.api.orders.get(order.id).subscribe({
+        next: (o) => {
+          if (o.status === 'PENDING' || o.status === order.status) {
+            return;
+          }
+          this.stopPolling();
+          this.buffering = false;
+          this.message = {
+            text:
+              o.status === 'EXECUTED'
+                ? `Order ${o.id.slice(0, 8)}… EXECUTED @ ${money(o.executedPrice ?? 0)}.`
+                : `Order ${o.id.slice(0, 8)}… ${o.status} — ${o.rejectReason || 'no reason'}.`,
+            ok: o.status === 'EXECUTED',
+          };
+        },
+        error: () => this.stopPolling(),
+      });
+    }, 1200);
   }
 
   money = money;
