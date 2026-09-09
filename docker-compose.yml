@@ -65,6 +65,7 @@ services:
         echo "Kafka topics ready."
 
   mock-funksance:
+    image: trade-platform-mock-funksance:latest
     build: ./infrastructure/mock-funksance
     environment:
       MOCK_PORT: 8080
@@ -82,6 +83,7 @@ services:
     restart: unless-stopped
 
   service-1:
+    image: trade-platform-service-1:latest
     build: ./service-1
     environment:
       DB_HOST: postgres
@@ -109,6 +111,7 @@ services:
     restart: unless-stopped
 
   service-2:
+    image: trade-platform-service-2:latest
     build: ./service-2
     environment:
       DB_HOST: postgres
@@ -140,6 +143,7 @@ services:
     restart: unless-stopped
 
   bff:
+    image: trade-platform-bff:latest
     build: ./bff
     environment:
       PORT: "3000"
@@ -169,6 +173,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: trade-platform-frontend:latest
     build: ./frontend
     ports:
       - "${FRONTEND_PORT:-4200}:80"
@@ -179,6 +184,7 @@ services:
   analytics:
     profiles: ["analytics"]
     build: ./analytics
+    image: trade-platform-analytics:latest
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"

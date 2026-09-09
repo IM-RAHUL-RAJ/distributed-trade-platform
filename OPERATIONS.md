@@ -24,14 +24,14 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 Expected (all `Up ... (healthy)` except the UI which shows no healthcheck):
 
-- `trade-platform-repo-frontend-1`  (port 4200)
-- `trade-platform-repo-bff-1`       (port 3000)
-- `trade-platform-repo-service-1-1` (port 8081)
-- `trade-platform-repo-service-2-1` (port 8082)
-- `trade-platform-repo-postgres-1`  (port 5432)
-- `trade-platform-repo-kafka-1`     (port 9092)
-- `trade-platform-repo-mock-funksance-1`
-- `trade-platform-repo-kafka-init-1` (exits 0 after creating topics — that is normal)
+- `trade-platform-frontend-1`  (port 4200)
+- `trade-platform-bff-1`       (port 3000)
+- `trade-platform-service-1-1` (port 8081)
+- `trade-platform-service-2-1` (port 8082)
+- `trade-platform-postgres-1`  (port 5432)
+- `trade-platform-kafka-1`     (port 9092)
+- `trade-platform-mock-funksance-1`
+- `trade-platform-kafka-init-1` (exits 0 after creating topics — that is normal)
 
 Open the UI: <http://localhost:4200> → Register → Login → Trade.
 
@@ -42,21 +42,21 @@ Open the UI: <http://localhost:4200> → Register → Login → Trade.
 Get the ID of any container by name:
 
 ```bash
-docker ps -aqf "name=trade-platform-repo-postgres-1"      # prints the container ID
+docker ps -aqf "name=trade-platform-postgres-1"      # prints the container ID
 ```
 
 Exec into a shell / run a command inside a container:
 
 ```bash
 # PostgreSQL — interactive SQL shell
-docker exec -it trade-platform-repo-postgres-1 psql -U trade_app -d trade_platform
+docker exec -it trade-platform-postgres-1 psql -U trade_app -d trade_platform
 
 # Kafka — run any kafka tooling (topics, console consumer, console producer)
-docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-topics.sh --list
+docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --list
 
 # Service 1 & 2 — they run Bash; watch logs or poke around
-docker exec -it trade-platform-repo-service-1-1 sh
-docker exec -it trade-platform-repo-service-2-1 sh
+docker exec -it trade-platform-service-1-1 sh
+docker exec -it trade-platform-service-2-1 sh
 
 # Generic: just get a shell in a container
 docker exec -it <container-id> sh
@@ -71,8 +71,8 @@ docker exec -it <container-id> sh
 ### 3a. Topics & partitions
 
 ```bash
-docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe order-placed
+docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe order-placed
 ```
 Expected: `order-placed` (3 partitions), `trade-events`, `market-data` (1 each).
 
@@ -82,9 +82,9 @@ Open THREE terminals. In each, start a live consumer (`--from-beginning` replays
 
 | Terminal | Command |
 |---|---|
-| A — market data | `docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic market-data --from-beginning` |
-| B — executed trades | `docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade-events --from-beginning` |
-| C — new orders | `docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-placed --from-beginning` |
+| A — market data | `docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic market-data --from-beginning` |
+| B — executed trades | `docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade-events --from-beginning` |
+| C — new orders | `docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-placed --from-beginning` |
 
 Now **place an order** in the UI (or with curl):
 ```bash
@@ -101,7 +101,7 @@ Observe:
 ### 3c. Producer: inject a message manually (Kafka without the UI)
 
 ```bash
-docker exec -it trade-platform-repo-kafka-1 /bin/sh -c \
+docker exec -it trade-platform-kafka-1 /bin/sh -c \
  'echo "{\"orderId\":\"MANUAL-$(date +%s)\",\"symbol\":\"TSLA\",\"side\":\"BUY\",\"orderType\":\"MARKET\",\"quantity\":1,\"accountId\":\"manual\",\"unitPrice\":null}" | \
  /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic order-placed'
 ```
@@ -113,7 +113,7 @@ docker compose -f /Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/tr
 ### 3d. Consumer health (offsets / lag)
 
 ```bash
-docker exec -it trade-platform-repo-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --all-groups --describe
+docker exec -it trade-platform-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --all-groups --describe
 ```
 Healthy = `LAG 0`. A growing lag means consumption is stuck.
 
@@ -123,7 +123,7 @@ Healthy = `LAG 0`. A growing lag means consumption is stuck.
 
 Enter Postgres:
 ```bash
-docker exec -it trade-platform-repo-postgres-1 psql -U trade_app -d trade_platform
+docker exec -it trade-platform-postgres-1 psql -U trade_app -d trade_platform
 ```
 
 **List all tables:**
@@ -231,5 +231,5 @@ docker exec -it <container> sh            # shell
 ... kafka-consumer-groups.sh ... --all-groups --describe
 
 # db
-docker exec -it trade-platform-repo-postgres-1 psql -U trade_app -d trade_platform
+docker exec -it trade-platform-postgres-1 psql -U trade_app -d trade_platform
 ```
