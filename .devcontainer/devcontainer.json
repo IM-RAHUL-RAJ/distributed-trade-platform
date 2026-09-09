@@ -11,7 +11,7 @@
     }
   },
   "postCreateCommand": "docker compose version && docker load -i /tmp/tp.tar.gz || true",
-  "postStartCommand": "curl -fsSL -o /tmp/tp.tar.gz https://github.com/IM-RAHUL-RAJ/trade-platform/releases/latest/download/trade-platform-images.tar.gz && docker load -i /tmp/tp.tar.gz && docker compose up -d && sleep 45 && docker compose ps",
+  "postStartCommand": "curl -fsSL -o /tmp/tp.tar.gz https://github.com/IM-RAHUL-RAJ/distributed-trade-platform/releases/latest/download/trade-platform-images.tar.gz && docker load -i /tmp/tp.tar.gz && docker compose up -d && sleep 45 && docker compose ps",
   "forwardPorts": [4200, 3000, 8081, 8082, 5432, 9092],
   "portsAttributes": {
     "4200": { "label": "Frontend (Angular)", "onAutoForward": "openBrowser" },

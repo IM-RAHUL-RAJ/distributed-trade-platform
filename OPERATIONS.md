@@ -2,23 +2,23 @@
 
 Complete lifecycle: **start → inspect (exec / Kafka / DB) → tear down & prune → bring back up.**
 
-All commands assume the project lives at `~/Projects/trade-platform-repo`
-(`COMPOSE=~/Projects/trade-platform-repo/docker-compose.yml`).
+All commands assume the project lives at `/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform`
+(`COMPOSE=/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/docker-compose.yml`).
 
 ---
 
 ## 1. Start the stack
 
 ```bash
-~/Projects/trade-platform-repo/tools/tp-up.sh      # recommended (loads images if needed)
+/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/tools/tp-up.sh      # recommended (loads images if needed)
 # or manually:
-# docker compose -f ~/Projects/trade-platform-repo/docker-compose.yml up -d
+# docker compose -f /Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/docker-compose.yml up -d
 ```
 
 Wait ~45–60 s, then confirm all services are healthy:
 
 ```bash
-docker compose -f ~/Projects/trade-platform-repo/docker-compose.yml ps
+docker compose -f /Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/docker-compose.yml ps
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
@@ -107,7 +107,7 @@ docker exec -it trade-platform-repo-kafka-1 /bin/sh -c \
 ```
 Then watch Service 2 pick it up:
 ```bash
-docker compose -f ~/Projects/trade-platform-repo/docker-compose.yml logs -f service-2
+docker compose -f /Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/docker-compose.yml logs -f service-2
 ```
 
 ### 3d. Consumer health (offsets / lag)
@@ -178,7 +178,7 @@ Exit with `\q`.
 
 ```bash
 # Stop the stack (keeps images + Postgres/Kafka data)
-docker compose -f ~/Projects/trade-platform-repo/docker-compose.yml down
+docker compose -f /Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/docker-compose.yml down
 
 # Wipe all images, containers, caches AND volumes (Postgres/Kafka data gone)
 docker system prune -a -f --volumes
@@ -199,7 +199,7 @@ The VM will now be essentially empty, so it cannot bloat while unused.
 ## 6. Bring it all back up (from a fully wiped Docker)
 
 ```bash
-~/Projects/trade-platform-repo/tools/tp-up.sh
+/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/tools/tp-up.sh
 ```
 This will:
 1. notice the images are missing,

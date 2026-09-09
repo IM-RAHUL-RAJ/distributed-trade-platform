@@ -2,7 +2,7 @@
 # Start the full trade-platform stack using cached prebuilt images.
 # If the images were pruned, they are re-loaded from the local tarball.
 set -e
-REPO="${1:-$HOME/Projects/trade-platform-repo}"
+REPO="${1:-$HOME/Documents/Projects/OpenCode/CD2026/version1/trade-platform}"
 TAR="${HOME}/Projects/tp-images.tar.gz"
 
 cd "$REPO"
@@ -12,7 +12,7 @@ if ! docker image inspect trade-platform-service-1 >/dev/null 2>&1; then
   if [ ! -f "$TAR" ]; then
     echo "Downloading prebuilt images (0.7 GB)..."
     curl -fsSL -o "$TAR" \
-      https://github.com/IM-RAHUL-RAJ/trade-platform/releases/latest/download/trade-platform-images.tar.gz
+      https://github.com/IM-RAHUL-RAJ/distributed-trade-platform/releases/latest/download/trade-platform-images.tar.gz
   fi
   echo "Loading images..."
   docker load -i "$TAR"

@@ -193,8 +193,8 @@ Outputs CSV/parquet summaries to `analytics/output/`.
 prune everything else when you stop, so Docker Desktop never bloats:
 
 ```bash
-~/Projects/trade-platform-repo/tools/tp-up.sh       # load images (if needed) + start stack
-~/Projects/trade-platform-repo/tools/tp-down.sh     # stop stack + prune ALL images/caches/volumes
+/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/tools/tp-up.sh       # load images (if needed) + start stack
+/Users/rahulraj/Documents/Projects/OpenCode/CD2026/version1/trade-platform/tools/tp-down.sh     # stop stack + prune ALL images/caches/volumes
 ```
 
 `tp-up.sh` reuses the local tarball (`~/Projects/tp-images.tar.gz`) and only re-downloads it
