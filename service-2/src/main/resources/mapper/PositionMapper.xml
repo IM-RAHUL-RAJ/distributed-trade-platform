@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.s2.mapper.PositionMapper">
+
+    <select id="lockByUserAndInstrument" resultType="com.trade.platform.s2.entity.Position">
+        SELECT id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at
+        FROM positions WHERE user_id = #{userId} AND instrument_id = #{instrumentId} FOR UPDATE
+    </select>
+
+    <insert id="insert" parameterType="com.trade.platform.s2.entity.Position">
+        INSERT INTO positions (id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at)
+        VALUES (#{id}, #{userId}, #{accountId}, #{instrumentId}, #{symbol}, #{quantity}, #{averagePrice}, #{realizedPnl}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.trade.platform.s2.entity.Position">
+        UPDATE positions
+        SET quantity = #{quantity}, average_price = #{averagePrice}, realized_pnl = #{realizedPnl}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

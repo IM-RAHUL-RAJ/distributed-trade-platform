@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.mapper.WatchlistMapper">
+
+    <select id="findByUser" resultType="com.trade.platform.entity.Instrument">
+        SELECT i.id, i.symbol, i.name, i.exchange, i.currency, i.type, i.tick_size, i.lot_size,
+               i.last_price, i.change, i.change_percent, i.updated_at, i.is_active
+        FROM watchlists w
+        JOIN instruments i ON i.id = w.instrument_id
+        WHERE w.user_id = #{userId}
+        ORDER BY i.symbol
+    </select>
+
+</mapper>

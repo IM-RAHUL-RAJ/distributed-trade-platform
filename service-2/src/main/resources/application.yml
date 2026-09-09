@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: service-2
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:trade_platform}
+    username: ${DB_USER:trade_app}
+    password: ${DB_PASSWORD:trade_app_password}
+    hikari:
+      maximum-pool-size: 10
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: service-2-executor
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath:mapper/*.xml
+
+app:
+  topics:
+    order-placed: ${KAFKA_TOPIC_ORDER_PLACED:order-placed}
+    trade-events: ${KAFKA_TOPIC_TRADE_EVENTS:trade-events}
+    market-data: ${KAFKA_TOPIC_MARKET_DATA:market-data}
+  funksance:
+    api-url: ${FUNKSANCE_API_URL:http://localhost:8080}
+    poll-interval-ms: ${MARKET_DATA_POLL_INTERVAL_MS:5000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  pattern:
+    console: "[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    com.trade.platform.s2: INFO
+    org.mybatis: WARN
+    org.apache.kafka.clients.consumer: WARN

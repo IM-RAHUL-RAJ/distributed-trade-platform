@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.s2.mapper.TradeMapper">
+
+    <select id="findByOrderId" resultType="com.trade.platform.s2.entity.Trade">
+        SELECT id, order_id, user_id, account_id, instrument_id, symbol, side, quantity, price, executed_at
+        FROM trades WHERE order_id = #{orderId}
+    </select>
+
+    <insert id="insert" parameterType="com.trade.platform.s2.entity.Trade">
+        INSERT INTO trades (id, order_id, user_id, account_id, instrument_id, symbol, side, quantity, price, executed_at)
+        VALUES (#{id}, #{orderId}, #{userId}, #{accountId}, #{instrumentId}, #{symbol}, #{side}, #{quantity}, #{price}, NOW())
+    </insert>
+
+</mapper>

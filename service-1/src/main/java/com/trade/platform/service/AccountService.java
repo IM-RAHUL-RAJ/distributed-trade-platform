@@ -1,0 +1,55 @@
+package com.trade.platform.service;
+
+import com.trade.platform.common.BusinessException;
+import com.trade.platform.dto.AccountDto;
+import com.trade.platform.entity.Account;
+import com.trade.platform.mapper.AccountMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+@Slf4j
+@Service
+public class AccountService {
+
+    private final AccountMapper accountMapper;
+    private final BigDecimal defaultCash;
+    private final List<String> watchlistSymbols;
+
+    public AccountService(AccountMapper accountMapper,
+                          @Value("${app.onboarding.default-cash:1000000}") BigDecimal defaultCash,
+                          @Value("${app.onboarding.watchlist-symbols:NVDA,AAPL,MSFT,TSLA,META,GOOG,AMZN}") String watchlistSymbols) {
+        this.accountMapper = accountMapper;
+        this.defaultCash = defaultCash;
+        this.watchlistSymbols = Arrays.stream(watchlistSymbols.split(",")).map(String::trim).toList();
+    }
+
+    /**
+     * Onboarding: lazily creates the trading account and default watchlist the
+     * first time a user touches any business endpoint. Business logic lives here,
+     * NOT in the BFF.
+     */
+    @Transactional
+    public Account getOrCreate(UUID userId) {
+        Account account = accountMapper.findByUserId(userId);
+        if (account != null) {
+            return account;
+        }
+        accountMapper.insertDefaultAccount(userId, defaultCash);
+        accountMapper.insertDefaultWatchlist(userId, watchlistSymbols);
+        account = accountMapper.findByUserId(userId);
+        log.info("Onboarded account {} with {} cash for user {}", account.getId(), defaultCash, userId);
+        return account;
+    }
+
+    public AccountDto toDto(UUID userId) {
+        Account account = getOrCreate(userId);
+        return new AccountDto(account.getStatus(), "Trading Account", account.getCash(), account.getMargin());
+    }
+}

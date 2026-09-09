@@ -1,0 +1,9 @@
+# =====================================================================
+# Trade Platform - Kafka Topics
+# =====================================================================
+# Topics are created automatically on first write (auto.create.topics)
+# and explicitly by the kafka-init container for deterministic setup.
+
+TOPICS += order-placed
+TOPICS += trade-events
+TOPICS += market-data

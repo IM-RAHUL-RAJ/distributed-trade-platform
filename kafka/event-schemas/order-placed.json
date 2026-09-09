@@ -1,0 +1,19 @@
+{
+  "topic": "order-placed",
+  "description": "Published by Service 1 when a validated order is persisted. Consumed by Service 2 (Trade Executor). Keyed by orderId.",
+  "partitions": 3,
+  "replicationFactor": 1,
+  "schema": {
+    "eventId": "uuid",
+    "orderId": "uuid",
+    "userId": "uuid",
+    "accountId": "uuid",
+    "instrumentId": "uuid",
+    "symbol": "ABC",
+    "side": "BUY|SELL",
+    "orderType": "MARKET|LIMIT",
+    "requestedPrice": "number|null",
+    "quantity": "integer",
+    "timestamp": "ISO-8601"
+  }
+}

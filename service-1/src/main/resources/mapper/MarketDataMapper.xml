@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.mapper.MarketDataMapper">
+
+    <select id="findAll" resultType="com.trade.platform.entity.MarketData">
+        SELECT md.instrument_id, md.symbol, md.price, md.change, md.change_percent, md.timestamp
+        FROM market_data md ORDER BY md.symbol
+    </select>
+
+    <select id="findByInstrument" resultType="com.trade.platform.entity.MarketData">
+        SELECT instrument_id, symbol, price, change, change_percent, timestamp
+        FROM market_data WHERE instrument_id = #{instrumentId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO market_data (instrument_id, symbol, price, change, change_percent, timestamp)
+        VALUES (#{instrumentId}, #{symbol}, #{price}, #{change}, #{changePercent}, #{timestamp})
+        ON CONFLICT (instrument_id) DO UPDATE
+        SET price = EXCLUDED.price,
+            change = EXCLUDED.change,
+            change_percent = EXCLUDED.change_percent,
+            timestamp = EXCLUDED.timestamp
+    </insert>
+
+</mapper>

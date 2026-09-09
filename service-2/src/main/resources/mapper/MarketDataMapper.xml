@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.s2.mapper.MarketDataMapper">
+
+    <select id="findLatest" resultType="com.trade.platform.s2.entity.MarketData">
+        SELECT instrument_id, symbol, price, change, change_percent, timestamp
+        FROM market_data WHERE instrument_id = #{instrumentId}
+    </select>
+
+    <select id="findAll" resultType="com.trade.platform.s2.entity.MarketData">
+        SELECT instrument_id, symbol, price, change, change_percent, timestamp
+        FROM market_data
+    </select>
+
+    <select id="findInstrument" resultType="com.trade.platform.s2.entity.Instrument">
+        SELECT id, symbol, name, last_price, change, change_percent
+        FROM instruments WHERE id = #{id}
+    </select>
+
+    <select id="findAllActiveInstruments" resultType="com.trade.platform.s2.entity.Instrument">
+        SELECT id, symbol, name, last_price, change, change_percent
+        FROM instruments WHERE is_active = TRUE
+    </select>
+
+    <insert id="upsert" parameterType="com.trade.platform.s2.entity.MarketData">
+        INSERT INTO market_data (instrument_id, symbol, price, change, change_percent, timestamp)
+        VALUES (#{instrumentId}, #{symbol}, #{price}, #{change}, #{changePercent}, #{timestamp})
+        ON CONFLICT (instrument_id) DO UPDATE
+        SET price = EXCLUDED.price,
+            change = EXCLUDED.change,
+            change_percent = EXCLUDED.change_percent,
+            timestamp = EXCLUDED.timestamp
+    </insert>
+
+</mapper>

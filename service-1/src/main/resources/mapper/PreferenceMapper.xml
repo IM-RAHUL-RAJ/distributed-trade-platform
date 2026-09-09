@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.mapper.PreferenceMapper">
+
+    <select id="findByUserId" resultType="com.trade.platform.entity.CustomerPreference">
+        SELECT id, user_id, trading_experience, risk_tolerance, trading_style, investment_horizon,
+               preferred_sectors, trading_frequency, is_completed, created_at, updated_at
+        FROM customer_preferences WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" parameterType="com.trade.platform.entity.CustomerPreference">
+        INSERT INTO customer_preferences (user_id, is_completed, created_at, updated_at)
+        VALUES (#{userId}, FALSE, NOW(), NOW())
+    </insert>
+
+    <insert id="insertWithCompletion" parameterType="com.trade.platform.entity.CustomerPreference">
+        INSERT INTO customer_preferences (user_id, trading_experience, risk_tolerance, trading_style,
+                                          investment_horizon, preferred_sectors, trading_frequency, is_completed, created_at, updated_at)
+        VALUES (#{userId}, #{tradingExperience}, #{riskTolerance}, #{tradingStyle},
+                #{investmentHorizon}, #{preferredSectors}, #{tradingFrequency}, TRUE, NOW(), NOW())
+        ON CONFLICT (user_id) DO NOTHING
+    </insert>
+
+    <update id="update" parameterType="com.trade.platform.entity.CustomerPreference">
+        UPDATE customer_preferences
+        SET trading_experience = #{tradingExperience},
+            risk_tolerance     = #{riskTolerance},
+            trading_style      = #{tradingStyle},
+            investment_horizon = #{investmentHorizon},
+            preferred_sectors  = #{preferredSectors},
+            trading_frequency  = #{tradingFrequency},
+            is_completed       = TRUE,
+            updated_at         = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.s2.mapper.TransactionMapper">
+
+    <insert id="insert" parameterType="com.trade.platform.s2.entity.Transaction">
+        INSERT INTO transactions (id, user_id, account_id, order_id, trade_id, type, amount, balance_after, description, created_at)
+        VALUES (#{id}, #{userId}, #{accountId}, #{orderId}, #{tradeId}, #{type}, #{amount}, #{balanceAfter}, #{description}, NOW())
+    </insert>
+
+</mapper>

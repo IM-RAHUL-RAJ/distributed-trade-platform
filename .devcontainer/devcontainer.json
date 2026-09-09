@@ -1,0 +1,29 @@
+{
+  "name": "Trade Platform - Full Stack (prebuilt images)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "postCreateCommand": "docker compose version && docker load -i /tmp/tp.tar.gz || true",
+  "postStartCommand": "curl -fsSL -o /tmp/tp.tar.gz https://github.com/IM-RAHUL-RAJ/trade-platform/releases/latest/download/trade-platform-images.tar.gz && docker load -i /tmp/tp.tar.gz && docker compose up -d && sleep 45 && docker compose ps",
+  "forwardPorts": [4200, 3000, 8081, 8082, 5432, 9092],
+  "portsAttributes": {
+    "4200": { "label": "Frontend (Angular)", "onAutoForward": "openBrowser" },
+    "3000": { "label": "API (NestJS BFF)", "onAutoForward": "notify" },
+    "8081": { "label": "Service 1 (Spring Boot)", "onAutoForward": "notify" },
+    "8082": { "label": "Service 2 (Spring Boot)", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
+    "9092": { "label": "Kafka", "onAutoForward": "silent" }
+  },
+  "remoteUser": "vscode",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  }
+}

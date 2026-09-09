@@ -1,0 +1,15 @@
+{
+  "topic": "market-data",
+  "description": "Published periodically by Service 2 from Funksance API polling. Consumed by Service 1 for dashboard read state. Keyed by instrumentId.",
+  "partitions": 3,
+  "replicationFactor": 1,
+  "schema": {
+    "eventId": "uuid",
+    "instrumentId": "uuid",
+    "symbol": "ABC",
+    "price": "number",
+    "change": "number",
+    "changePercent": "number",
+    "timestamp": "ISO-8601"
+  }
+}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.mapper.InstrumentMapper">
+
+    <select id="findAllActive" resultType="com.trade.platform.entity.Instrument">
+        SELECT id, symbol, name, exchange, currency, type, tick_size, lot_size,
+               last_price, change, change_percent, updated_at, is_active
+        FROM instruments WHERE is_active = TRUE ORDER BY symbol
+    </select>
+
+    <select id="findById" resultType="com.trade.platform.entity.Instrument">
+        SELECT id, symbol, name, exchange, currency, type, tick_size, lot_size,
+               last_price, change, change_percent, updated_at, is_active
+        FROM instruments WHERE id = #{id}
+    </select>
+
+    <select id="findBySymbol" resultType="com.trade.platform.entity.Instrument">
+        SELECT id, symbol, name, exchange, currency, type, tick_size, lot_size,
+               last_price, change, change_percent, updated_at, is_active
+        FROM instruments WHERE symbol = #{symbol}
+    </select>
+
+    <select id="findBySymbols" resultType="com.trade.platform.entity.Instrument">
+        SELECT id, symbol, name, exchange, currency, type, tick_size, lot_size,
+               last_price, change, change_percent, updated_at, is_active
+        FROM instruments WHERE symbol IN
+        <foreach collection="symbols" item="s" open="(" separator="," close=")">
+            #{s}
+        </foreach>
+    </select>
+
+    <update id="updatePrice">
+        UPDATE instruments
+        SET last_price = #{price}, change = #{change}, change_percent = #{changePercent}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

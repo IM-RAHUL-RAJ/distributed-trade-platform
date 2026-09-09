@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.trade.platform.mapper.PositionMapper">
+
+    <select id="findByUser" resultType="com.trade.platform.entity.Position">
+        SELECT id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at
+        FROM positions WHERE user_id = #{userId} ORDER BY symbol
+    </select>
+
+    <select id="findById" resultType="com.trade.platform.entity.Position">
+        SELECT id, user_id, account_id, instrument_id, symbol, quantity, average_price, realized_pnl, updated_at
+        FROM positions WHERE id = #{id}
+    </select>
+
+</mapper>
